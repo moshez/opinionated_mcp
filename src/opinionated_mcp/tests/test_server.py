@@ -60,6 +60,30 @@ class TestOpinionatedMCP(unittest.TestCase):
             assert_that(server.session_key, is_(new_key))
             assert_that(server.session_key, not_(is_(old_key)))
     
+    def test_is_session_middleware_true(self):
+        with patch('opinionated_mcp.server.setup_routes'):
+            server = OpinionatedMCP(**self.server_config)
+            
+            class MockMiddleware:
+                def __init__(self):
+                    self.cls = SessionMiddleware
+            
+            mock_middleware = MockMiddleware()
+            result = server._is_session_middleware(mock_middleware)
+            assert_that(result, is_(True))
+    
+    def test_is_session_middleware_false(self):
+        with patch('opinionated_mcp.server.setup_routes'):
+            server = OpinionatedMCP(**self.server_config)
+            
+            class MockMiddleware:
+                def __init__(self):
+                    self.cls = str  # Not SessionMiddleware
+            
+            mock_middleware = MockMiddleware()
+            result = server._is_session_middleware(mock_middleware)
+            assert_that(result, is_(False))
+    
     def test_reset_session_key_with_middleware(self):
         with patch('opinionated_mcp.server.setup_routes'):
             server = OpinionatedMCP(**self.server_config)
@@ -78,6 +102,33 @@ class TestOpinionatedMCP(unittest.TestCase):
             
             assert_that(server.session_key, is_(new_key))
             assert_that(mock_middleware.kwargs["secret_key"], is_(new_key))
+    
+    def test_reset_session_key_with_mixed_middleware(self):
+        with patch('opinionated_mcp.server.setup_routes'):
+            server = OpinionatedMCP(**self.server_config)
+            
+            # Create both SessionMiddleware and non-SessionMiddleware objects
+            class SessionMiddlewareObj:
+                def __init__(self):
+                    self.cls = SessionMiddleware
+                    self.kwargs = {"secret_key": "old_key"}
+            
+            class OtherMiddlewareObj:
+                def __init__(self):
+                    self.cls = str  # Not SessionMiddleware
+                    self.kwargs = {"some_key": "some_value"}
+            
+            session_middleware = SessionMiddlewareObj()
+            other_middleware = OtherMiddlewareObj()
+            server.app.user_middleware = [session_middleware, other_middleware]
+            
+            new_key = generate_session_key()
+            server.reset_session_key(new_key)
+            
+            # SessionMiddleware should be updated
+            assert_that(session_middleware.kwargs["secret_key"], is_(new_key))
+            # Other middleware should not be affected
+            assert_that(other_middleware.kwargs["some_key"], is_("some_value"))
     
     def test_require_auth_decorator_authenticated(self):
         with patch('opinionated_mcp.server.setup_routes'):
@@ -181,15 +232,66 @@ class TestOpinionatedMCP(unittest.TestCase):
                 assert_that(calls[1][0][0], is_("/test"))
                 assert_that(calls[1][1]["methods"], is_(["POST"]))
     
+    def test_setup_server(self):
+        with patch('opinionated_mcp.server.setup_routes'):
+            server = OpinionatedMCP(**self.server_config)
+            
+            with patch.object(server.app, 'mount') as mock_mount:
+                server._setup_server()
+                
+                mock_mount.assert_called_once()
+                assert_that(server.app.router.lifespan_context, is_(not_(None)))
+    
+    def test_create_lifespan_context(self):
+        with patch('opinionated_mcp.server.setup_routes'):
+            server = OpinionatedMCP(**self.server_config)
+            
+            async def test_lifespan():
+                # Create a mock that simulates the async context manager
+                mock_session_manager_run = AsyncMock()
+                
+                # Patch the mcp object directly with a mock that has the run method
+                with patch.object(server, 'mcp') as mock_mcp:
+                    mock_mcp.session_manager.run.return_value = mock_session_manager_run
+                    
+                    # Test the lifespan context manager
+                    async with server._create_lifespan_context(server.app):
+                        pass
+                    
+                    mock_mcp.session_manager.run.assert_called_once()
+            
+            import asyncio
+            asyncio.run(test_lifespan())
+    
+    def test_log_startup_info(self):
+        with patch('opinionated_mcp.server.setup_routes'):
+            server = OpinionatedMCP(**self.server_config)
+            
+            with patch('opinionated_mcp.server.logger') as mock_logger:
+                server._log_startup_info()
+                
+                # Verify all the startup info is logged
+                assert_that(mock_logger.info.call_count, is_(5))
+                calls = mock_logger.info.call_args_list
+                
+                # Check that server name, host, port, and URLs are logged
+                assert_that(str(calls[0]), contains_string("Test MCP Server"))
+                assert_that(str(calls[1]), contains_string("localhost:8000"))
+                assert_that(str(calls[2]), contains_string("http://localhost:8000"))
+                assert_that(str(calls[3]), contains_string("/login"))
+                assert_that(str(calls[4]), contains_string("/mcp"))
+    
     @patch('opinionated_mcp.server.uvicorn')
     def test_run(self, mock_uvicorn):
         with patch('opinionated_mcp.server.setup_routes'):
             server = OpinionatedMCP(**self.server_config)
             
-            with patch.object(server.app, 'mount') as mock_mount:
+            with patch.object(server, '_setup_server') as mock_setup, \
+                 patch.object(server, '_log_startup_info') as mock_log:
                 server.run(debug=True)
                 
-                mock_mount.assert_called_once()
+                mock_setup.assert_called_once()
+                mock_log.assert_called_once()
                 mock_uvicorn.run.assert_called_once_with(
                     server.app, 
                     host="localhost", 

@@ -43,6 +43,7 @@ This file contains important guidance for AI assistants working on this codebase
 3. **Never proactively create documentation files**
 4. **Testability is a design requirement, not a nice-to-have**
 5. **100% coverage means refactoring untestable code, not accepting lower coverage**
+6. **Use logging library instead of print statements for proper application logging**
 
 ## Testing Patterns
 

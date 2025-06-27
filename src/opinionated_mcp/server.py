@@ -2,6 +2,7 @@
 
 import uvicorn
 import contextlib
+import logging
 from typing import Optional
 from dataclasses import dataclass
 from functools import wraps
@@ -12,6 +13,8 @@ from mcp.server.fastmcp import FastMCP
 from .crypto import SessionCrypto
 from .auth import GoogleOAuthHandler
 from .routes import setup_routes
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -47,13 +50,17 @@ class OpinionatedMCP:
         """Generate redirect URI from base URL"""
         return f"{self.base_url.rstrip('/')}/callback"
     
+    def _is_session_middleware(self, middleware) -> bool:
+        """Check if middleware is a SessionMiddleware"""
+        return isinstance(middleware.cls, type) and issubclass(middleware.cls, SessionMiddleware)
+    
     def reset_session_key(self, new_session_key: str):
         """Rotate the session key (invalidates all existing sessions)"""
         self.session_key = new_session_key
         self.crypto.update_key(new_session_key)
         
         for middleware in self.app.user_middleware:
-            if isinstance(middleware.cls, type) and issubclass(middleware.cls, SessionMiddleware):
+            if self._is_session_middleware(middleware):
                 middleware.kwargs["secret_key"] = new_session_key
     
     def require_auth(self, func):
@@ -86,20 +93,27 @@ class OpinionatedMCP:
             return wrapper
         return decorator
     
+    @contextlib.asynccontextmanager
+    async def _create_lifespan_context(self, app: FastAPI):
+        """Create lifespan context manager for MCP session management"""
+        async with self.mcp.session_manager.run():
+            yield
+    
+    def _setup_server(self):
+        """Setup server configuration before running"""
+        self.app.router.lifespan_context = self._create_lifespan_context
+        self.app.mount("/mcp", self.mcp.streamable_http_app())
+    
+    def _log_startup_info(self):
+        """Log server startup information"""
+        logger.info("🚀 Starting %s", self.name)
+        logger.info("📡 Server: http://%s:%s", self.host, self.port)
+        logger.info("🔗 Base URL: %s", self.base_url)
+        logger.info("🔐 Login: %s/login", self.base_url.rstrip('/'))
+        logger.info("🤖 MCP: %s/mcp", self.base_url.rstrip('/'))
+    
     def run(self, **kwargs):
         """Run the server"""
-        @contextlib.asynccontextmanager
-        async def lifespan(app: FastAPI):
-            async with self.mcp.session_manager.run():
-                yield
-        
-        self.app.router.lifespan_context = lifespan
-        self.app.mount("/mcp", self.mcp.streamable_http_app())
-        
-        print(f"🚀 Starting {self.name}")
-        print(f"📡 Server: http://{self.host}:{self.port}")
-        print(f"🔗 Base URL: {self.base_url}")
-        print(f"🔐 Login: {self.base_url.rstrip('/')}/login")
-        print(f"🤖 MCP: {self.base_url.rstrip('/')}/mcp")
-        
+        self._setup_server()
+        self._log_startup_info()
         uvicorn.run(self.app, host=self.host, port=self.port, **kwargs)

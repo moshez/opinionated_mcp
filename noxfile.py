@@ -20,7 +20,7 @@ def tests(session):
         "run",
         "--branch",
         "--source=opinionated_mcp",
-        "--omit=**/__main__.py",
+        "--omit=**/__main__.py,**/tests/**",
         "-m",
         "virtue",
         *tests,
