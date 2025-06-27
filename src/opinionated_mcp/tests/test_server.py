@@ -1,12 +1,37 @@
 """Tests for server module"""
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
-from hamcrest import assert_that, is_, not_, instance_of, has_property
+import logging
+import io
+from unittest.mock import Mock, AsyncMock
+from hamcrest import assert_that, is_, not_, instance_of, has_property, contains_string
 from fastapi import FastAPI, HTTPException
 from starlette.middleware.sessions import SessionMiddleware
 from opinionated_mcp.server import OpinionatedMCP
 from opinionated_mcp.crypto import generate_session_key
+
+
+class LogCapture:
+    """Capture log messages for testing"""
+    def __init__(self):
+        self.records = []
+        self.handler = logging.Handler()
+        self.handler.emit = lambda record: self.records.append(record)
+    
+    def setup(self, logger_name):
+        """Setup log capture for a specific logger"""
+        logger = logging.getLogger(logger_name)
+        logger.addHandler(self.handler)
+        logger.setLevel(logging.INFO)
+        return logger
+    
+    def get_messages(self):
+        """Get all captured log messages"""
+        return [record.getMessage() for record in self.records]
+    
+    def clear(self):
+        """Clear captured messages"""
+        self.records.clear()
 
 
 class TestOpinionatedMCP(unittest.TestCase):
@@ -274,12 +299,25 @@ class TestOpinionatedMCP(unittest.TestCase):
                 assert_that(mock_logger.info.call_count, is_(5))
                 calls = mock_logger.info.call_args_list
                 
-                # Check that server name, host, port, and URLs are logged
-                assert_that(str(calls[0]), contains_string("Test MCP Server"))
-                assert_that(str(calls[1]), contains_string("localhost:8000"))
-                assert_that(str(calls[2]), contains_string("http://localhost:8000"))
-                assert_that(str(calls[3]), contains_string("/login"))
-                assert_that(str(calls[4]), contains_string("/mcp"))
+                # Check that the correct log format strings and arguments are used
+                # calls[i][0] contains the positional args, calls[i][1] contains kwargs
+                
+                # First call: Starting server name
+                assert_that(calls[0][0][0], contains_string("Starting"))
+                assert_that(calls[0][0][1], is_("Test MCP Server"))
+                
+                # Second call: Server host and port
+                assert_that(calls[1][0][0], contains_string("Server:"))
+                assert_that(calls[1][0][1], is_("localhost"))
+                assert_that(calls[1][0][2], is_(8000))
+                
+                # Third call: Base URL
+                assert_that(calls[2][0][0], contains_string("Base URL"))
+                assert_that(calls[2][0][1], is_("http://localhost:8000"))
+                
+                # Fourth and fifth calls: Login and MCP URLs
+                assert_that(calls[3][0][0], contains_string("Login"))
+                assert_that(calls[4][0][0], contains_string("MCP"))
     
     @patch('opinionated_mcp.server.uvicorn')
     def test_run(self, mock_uvicorn):
