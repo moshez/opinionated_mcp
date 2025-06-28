@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "opinionated_mcp"
-version = "2022.3.6.2"
+dynamic = ["version"]
 description = "An opinionated MCP framework"
 readme = "README.rst"
 authors = [{name = "Moshe Zadka", email = "moshez@zadka.club"}]
