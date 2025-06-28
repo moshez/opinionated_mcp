@@ -6,12 +6,13 @@ Getting Started with opinionated_mcp
 What You'll Build
 -----------------
 
-By the end of this guide, you'll have a working MCP server with two tools:
+By the end of this guide, you'll have a working MCP server with:
 
-- ``write_name(name)`` - Store the user's name
-- ``read_name()`` - Retrieve the user's stored name
+- Two simple MCP tools: ``write_name(name)`` and ``read_name()``
+- Authenticated web endpoints: ``GET /my-name`` and ``POST /my-name``
+- User-specific data storage with automatic Google OAuth authentication
 
-Each user's data is automatically isolated by their Google account - no need to handle user identification in your tool code.
+Each user's data is automatically isolated by their Google account through the authenticated web endpoints.
 
 Prerequisites
 -------------
@@ -50,6 +51,7 @@ Create a new file called ``server.py``:
 .. code-block:: python
 
     from opinionated_mcp import OpinionatedMCP, generate_session_key
+    from fastapi import Request, HTTPException
 
     # In-memory storage for user data (use a database in production)
     user_data = {}
@@ -63,18 +65,37 @@ Create a new file called ``server.py``:
     )
 
     @server.tool(name="write_name", description="Store your name")
-    @server.require_auth
-    async def write_name(request, user_id, name: str):
-        """Store the user's name. The user_id is automatically provided by authentication."""
-        user_data[user_id] = name
-        return f"Stored name '{name}' for user {user_id}"
+    def write_name(name: str) -> str:
+        """Store the user's name."""
+        # Note: MCP tools are not user-specific by default
+        # For user-specific functionality, use authenticated endpoints
+        return f"Stored name '{name}'"
 
-    @server.tool(name="read_name", description="Get your stored name")
-    @server.require_auth
-    async def read_name(request, user_id):
-        """Retrieve the user's stored name. The user_id is automatically provided by authentication."""
+    @server.tool(name="read_name", description="Get stored name")
+    def read_name() -> str:
+        """Retrieve the stored name."""
+        return "Use authenticated endpoints for user-specific data"
+
+    # For user-specific functionality, use authenticated endpoints
+    @server.app.get("/my-name")
+    async def get_my_name(request: Request):
+        """Get the authenticated user's name"""
+        user_id = server.oauth_handler.get_user_from_request(request)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
         name = user_data.get(user_id, "No name stored")
-        return f"Your stored name is: {name}"
+        return {"user_id": user_id, "name": name}
+
+    @server.app.post("/my-name")
+    async def set_my_name(request: Request, name: str):
+        """Set the authenticated user's name"""
+        user_id = server.oauth_handler.get_user_from_request(request)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        user_data[user_id] = name
+        return {"user_id": user_id, "name": name, "message": f"Stored name '{name}'"}
 
     if __name__ == "__main__":
         server.run(debug=True)
@@ -109,8 +130,13 @@ Testing with MCP Client
 
 If you have an MCP client, connect it to ``http://localhost:8000/mcp``. You'll see two available tools:
 
-- ``write_name`` - Takes a name parameter
-- ``read_name`` - Returns your stored name
+- ``write_name`` - Takes a name parameter (simple demonstration tool)
+- ``read_name`` - Returns a message about using authenticated endpoints
+
+For user-specific functionality, visit:
+
+- ``GET /my-name`` - Get your stored name (requires authentication)
+- ``POST /my-name`` - Set your name (requires authentication)
 
 Each user who authenticates will have their own isolated data storage.
 
@@ -128,29 +154,38 @@ Let's break down what's happening:
         base_url="http://localhost:8000"            # Where your server runs
     )
 
-**Tool Definition**::
+**MCP Tool Definition**::
 
     @server.tool(name="write_name", description="Store your name")
-    @server.require_auth
-    async def write_name(request, user_id, name: str):
-        # user_id is automatically the authenticated user's email
-        user_data[user_id] = name
-        return f"Stored name '{name}' for user {user_id}"
+    def write_name(name: str) -> str:
+        # MCP tools are not user-specific by default
+        return f"Stored name '{name}'"
+
+**Authenticated Endpoint Definition**::
+
+    @server.app.get("/my-name")
+    async def get_my_name(request: Request):
+        user_id = server.oauth_handler.get_user_from_request(request)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        name = user_data.get(user_id, "No name stored")
+        return {"user_id": user_id, "name": name}
 
 Key points:
 
-- ``@server.tool()`` registers the function as an MCP tool
-- ``@server.require_auth`` ensures only authenticated users can call it
-- ``user_id`` parameter is automatically injected with the authenticated user's email
-- The tool signature (``name: str``) becomes the MCP tool's parameter schema
+- ``@server.tool()`` registers the function as an MCP tool (no authentication by default)
+- For user-specific functionality, use ``@server.app.get()`` or ``@server.app.post()`` for authenticated endpoints
+- ``user_id`` is obtained by calling ``server.oauth_handler.get_user_from_request(request)``
+- You manually check authentication and handle the user_id in your endpoint logic
 
 **Authentication Flow**:
 
-1. User calls an MCP tool
-2. Server checks if user is authenticated
-3. If not authenticated, returns authentication error
-4. If authenticated, calls your tool function with ``user_id`` automatically set
-5. Your tool code works with per-user data without worrying about authentication
+1. User visits an authenticated endpoint (e.g., ``/my-name``)
+2. Server checks session for authentication status
+3. If not authenticated, returns 401 error or redirects to login
+4. If authenticated, your endpoint code gets the user_id and handles per-user data
+5. MCP tools are separate and don't have built-in authentication
 
 What Makes This "Opinionated"
 ------------------------------
@@ -222,7 +257,7 @@ Now that you have a working authenticated MCP server, you can:
 - Add web endpoints alongside your MCP tools
 - Scale to handle multiple users
 
-The key insight is that ``user_id`` is automatically provided to all your ``@server.require_auth`` decorated tools, so you can focus on your business logic rather than authentication plumbing.
+The key insight is that you can easily add authenticated web endpoints alongside your MCP tools. Use ``server.oauth_handler.get_user_from_request(request)`` to get the authenticated user's ID, allowing you to build user-specific functionality while keeping MCP tools simple and focused.
 
 Troubleshooting
 ---------------
