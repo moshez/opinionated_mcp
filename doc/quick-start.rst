@@ -8,11 +8,11 @@ What You'll Build
 
 By the end of this guide, you'll have a working MCP server with:
 
-- Two simple MCP tools: ``write_name(name)`` and ``read_name()``
+- Two authenticated MCP tools: ``write_name(name)`` and ``read_name()``
 - Authenticated web endpoints: ``GET /my-name`` and ``POST /my-name``
 - User-specific data storage with automatic Google OAuth authentication
 
-Each user's data is automatically isolated by their Google account through the authenticated web endpoints.
+Each user's data is automatically isolated by their Google account through both the authenticated MCP tools and web endpoints.
 
 Prerequisites
 -------------
@@ -64,17 +64,17 @@ Create a new file called ``server.py``:
         base_url="http://localhost:8000"
     )
 
-    @server.tool(name="write_name", description="Store your name")
-    def write_name(name: str) -> str:
-        """Store the user's name."""
-        # Note: MCP tools are not user-specific by default
-        # For user-specific functionality, use authenticated endpoints
-        return f"Stored name '{name}'"
+    @server.authenticated_tool(name="write_name", description="Store your name")
+    def write_name(user_id: str, name: str) -> str:
+        """Store the user's name. User ID is automatically provided."""
+        user_data[user_id] = name
+        return f"Stored name '{name}' for user {user_id}"
 
-    @server.tool(name="read_name", description="Get stored name")
-    def read_name() -> str:
-        """Retrieve the stored name."""
-        return "Use authenticated endpoints for user-specific data"
+    @server.authenticated_tool(name="read_name", description="Get your stored name")
+    def read_name(user_id: str) -> str:
+        """Retrieve the user's stored name. User ID is automatically provided."""
+        name = user_data.get(user_id, "No name stored")
+        return f"Your stored name is: {name}"
 
     # For user-specific functionality, use authenticated endpoints
     @server.app.get("/my-name")
@@ -128,17 +128,17 @@ Step 5: Test Your Server
 Testing with MCP Client
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-If you have an MCP client, connect it to ``http://localhost:8000/mcp``. You'll see two available tools:
+If you have an MCP client, connect it to ``http://localhost:8000/mcp``. You'll see two available authenticated tools:
 
-- ``write_name`` - Takes a name parameter (simple demonstration tool)
-- ``read_name`` - Returns a message about using authenticated endpoints
+- ``write_name`` - Takes a name parameter and stores it for the authenticated user
+- ``read_name`` - Returns the authenticated user's stored name
 
-For user-specific functionality, visit:
+You can also use these authenticated web endpoints:
 
 - ``GET /my-name`` - Get your stored name (requires authentication)
 - ``POST /my-name`` - Set your name (requires authentication)
 
-Each user who authenticates will have their own isolated data storage.
+Each user who authenticates will have their own isolated data storage accessible through both MCP tools and web endpoints.
 
 Understanding the Code
 ----------------------
@@ -154,12 +154,13 @@ Let's break down what's happening:
         base_url="http://localhost:8000"            # Where your server runs
     )
 
-**MCP Tool Definition**::
+**Authenticated MCP Tool Definition**::
 
-    @server.tool(name="write_name", description="Store your name")
-    def write_name(name: str) -> str:
-        # MCP tools are not user-specific by default
-        return f"Stored name '{name}'"
+    @server.authenticated_tool(name="write_name", description="Store your name")
+    def write_name(user_id: str, name: str) -> str:
+        # User ID is automatically injected by the authenticated_tool decorator
+        user_data[user_id] = name
+        return f"Stored name '{name}' for user {user_id}"
 
 **Authenticated Endpoint Definition**::
 
@@ -174,18 +175,21 @@ Let's break down what's happening:
 
 Key points:
 
-- ``@server.tool()`` registers the function as an MCP tool (no authentication by default)
-- For user-specific functionality, use ``@server.app.get()`` or ``@server.app.post()`` for authenticated endpoints
-- ``user_id`` is obtained by calling ``server.oauth_handler.get_user_from_request(request)``
-- You manually check authentication and handle the user_id in your endpoint logic
+- ``@server.authenticated_tool()`` registers an MCP tool that automatically receives the authenticated user's ID as the first parameter
+- ``@server.app.get()`` and ``@server.app.post()`` create authenticated web endpoints
+- For web endpoints, ``user_id`` is obtained by calling ``server.oauth_handler.get_user_from_request(request)``
+- You manually check authentication and handle the user_id in your web endpoint logic
+- MCP tools using ``@server.authenticated_tool()`` automatically get user context without manual authentication checks
 
 **Authentication Flow**:
 
-1. User visits an authenticated endpoint (e.g., ``/my-name``)
+1. User calls an authenticated MCP tool or visits an authenticated endpoint (e.g., ``/my-name``)
 2. Server checks session for authentication status
 3. If not authenticated, returns 401 error or redirects to login
-4. If authenticated, your endpoint code gets the user_id and handles per-user data
-5. MCP tools are separate and don't have built-in authentication
+4. If authenticated:
+   - For MCP tools: user_id is automatically injected as the first parameter
+   - For web endpoints: your endpoint code gets the user_id and handles per-user data
+5. Both MCP tools and web endpoints support user-specific functionality
 
 What Makes This "Opinionated"
 ------------------------------
@@ -194,7 +198,7 @@ This framework makes several decisions for you:
 
 - **Google OAuth only** - No configuration for multiple providers
 - **PKCE without client secrets** - More secure, easier deployment  
-- **Automatic user ID injection** - Your tools automatically get the authenticated user
+- **Automatic user ID injection** - Your MCP tools automatically get the authenticated user ID
 - **Session-based authentication** - Uses encrypted cookies
 - **FastAPI integration** - Modern, async Python web framework
 
@@ -257,7 +261,7 @@ Now that you have a working authenticated MCP server, you can:
 - Add web endpoints alongside your MCP tools
 - Scale to handle multiple users
 
-The key insight is that you can easily add authenticated web endpoints alongside your MCP tools. Use ``server.oauth_handler.get_user_from_request(request)`` to get the authenticated user's ID, allowing you to build user-specific functionality while keeping MCP tools simple and focused.
+The key insight is that you can easily build user-specific functionality using either authenticated MCP tools with ``@server.authenticated_tool()`` or authenticated web endpoints. Both approaches provide automatic user isolation, allowing you to build comprehensive user-specific applications that work seamlessly with MCP clients and web browsers.
 
 Troubleshooting
 ---------------
