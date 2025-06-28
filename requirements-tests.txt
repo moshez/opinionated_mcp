@@ -50,6 +50,7 @@ httpx==0.28.1
     # via
     #   mcp
     #   opinionated_mcp (pyproject.toml)
+    #   respx
 httpx-sse==0.4.1
     # via mcp
 hyperlink==21.0.0
@@ -92,6 +93,8 @@ referencing==0.36.2
     # via
     #   jsonschema
     #   jsonschema-specifications
+respx==0.22.0
+    # via opinionated_mcp (pyproject.toml)
 rpds-py==0.25.1
     # via
     #   jsonschema

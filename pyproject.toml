@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-tests = ["virtue", "pyhamcrest", "coverage"]
+tests = ["virtue", "pyhamcrest", "coverage", "respx"]
 mypy = ["mypy"]
 lint = ["flake8", "black"]
 docs = ["sphinx"]
