@@ -1,0 +1,4 @@
+opinionated_mcp
+========================
+
+Stuff
