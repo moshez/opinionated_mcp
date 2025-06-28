@@ -80,6 +80,32 @@ class OpinionatedMCP:
         """Register an MCP tool (proxies to FastMCP)"""
         return self.mcp.tool(**kwargs)
 
+    def authenticated_tool(self, **kwargs):
+        """Register an authenticated MCP tool that receives user_id as first parameter
+
+        Note: This is a conceptual implementation. In practice, MCP tools
+        are called independently of HTTP context, so true authentication
+        would require session-level handling in the MCP protocol itself.
+        """
+
+        def decorator(func):
+            # For this example, we'll create a wrapper that simulates authentication
+            # In a real implementation, this would need proper MCP session management
+
+            @wraps(func)
+            def wrapper(*args, **tool_kwargs):
+                # For the example, we'll use a default user ID
+                # In practice, this would come from MCP session context
+                default_user_id = "authenticated_user@example.com"
+
+                # Call the original function with the user_id as the first parameter
+                return func(default_user_id, *args, **tool_kwargs)
+
+            # Register the wrapper as a regular MCP tool
+            return self.mcp.tool(**kwargs)(wrapper)
+
+        return decorator
+
     def authenticated_endpoint(self, path: str, methods: list = ["GET"]):
         """Create an authenticated FastAPI endpoint that receives user_id"""
 

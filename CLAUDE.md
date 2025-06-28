@@ -11,6 +11,7 @@ This file contains important guidance for AI assistants working on this codebase
   - No internal functions/classes
   - Simple, straightforward execution paths
 - If code is "complex to test", refactor it to make it testable rather than accepting lower coverage
+- **Avoid using `# pragma: no cover` unless it's impossible to test. If it's merely complicated, do the right thing.**
 
 ### Testing Framework
 - Use `virtue` test framework (unittest-style with Twisted)
