@@ -1,5 +1,6 @@
 """FastAPI route definitions for OpinionatedMCP"""
 
+from typing import Optional
 from fastapi import Request, HTTPException
 from fastapi.responses import RedirectResponse
 from .auth import GoogleOAuthHandler
@@ -24,7 +25,7 @@ def setup_routes(app, oauth_handler: GoogleOAuthHandler, name: str, base_url: st
 
     @app.get("/callback")
     async def callback(
-        request: Request, code: str = None, state: str = None, error: str = None
+        request: Request, code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None
     ):
         """Handle Google OAuth callback"""
         if error:
