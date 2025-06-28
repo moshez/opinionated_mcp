@@ -2,8 +2,15 @@
 
 import asyncio
 import unittest
+import unittest.mock
+from unittest.mock import patch
 from hamcrest import assert_that, is_, instance_of, has_property
-from opinionated_mcp.example import ExampleMCPServer, create_example_server, user_data
+from opinionated_mcp.example import (
+    ExampleMCPServer,
+    create_example_server,
+    run_example_server,
+    user_data,
+)
 from opinionated_mcp.server import OpinionatedMCP
 
 
@@ -130,3 +137,31 @@ class TestCreateExampleServer(unittest.TestCase):
         assert_that(server.google_client_id, is_(google_client_id))
         assert_that(server.base_url, is_(base_url))
         assert_that(server.server.name, is_("Example MCP Server"))
+
+
+class TestRunExampleServer(unittest.TestCase):
+    @patch("opinionated_mcp.example.create_example_server")
+    def test_run_example_server_with_defaults(self, mock_create):
+        """Test run_example_server with default base_url"""
+        mock_server = unittest.mock.Mock()
+        mock_example_server = unittest.mock.Mock()
+        mock_example_server.server = mock_server
+        mock_create.return_value = mock_example_server
+
+        run_example_server("test_client_id")
+
+        mock_create.assert_called_once_with("test_client_id", "http://localhost:8000")
+        mock_server.run.assert_called_once()
+
+    @patch("opinionated_mcp.example.create_example_server")
+    def test_run_example_server_with_custom_base_url(self, mock_create):
+        """Test run_example_server with custom base_url"""
+        mock_server = unittest.mock.Mock()
+        mock_example_server = unittest.mock.Mock()
+        mock_example_server.server = mock_server
+        mock_create.return_value = mock_example_server
+
+        run_example_server("test_client_id", "https://example.com")
+
+        mock_create.assert_called_once_with("test_client_id", "https://example.com")
+        mock_server.run.assert_called_once()

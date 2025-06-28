@@ -6,7 +6,7 @@ from typing import Optional
 from ..server import OpinionatedMCP
 from ..crypto import generate_session_key
 
-__all__ = ["ExampleMCPServer", "create_example_server"]
+__all__ = ["ExampleMCPServer", "create_example_server", "run_example_server"]
 
 # In-memory storage for user data (use a database in production)
 user_data = {}
@@ -59,3 +59,9 @@ class ExampleMCPServer:
 def create_example_server(google_client_id: str, base_url: str) -> ExampleMCPServer:
     """Factory function to create an example MCP server"""
     return ExampleMCPServer(google_client_id, base_url)
+
+
+def run_example_server(google_client_id: str, base_url: str = "http://localhost:8000"):
+    """Run the example MCP server directly"""
+    server = create_example_server(google_client_id, base_url)
+    server.server.run()

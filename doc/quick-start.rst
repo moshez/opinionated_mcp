@@ -43,8 +43,18 @@ You need a Google OAuth Client ID (no client secret required):
 6. Add authorized redirect URI: ``http://localhost:8000/callback``
 7. Copy the Client ID (looks like: ``123456789-abc.apps.googleusercontent.com``)
 
-Step 3: Create Your Server
----------------------------
+Step 3: Create Your Server (or Use the Example)
+------------------------------------------------
+
+**Option A: Quick Test with Built-in Example**
+
+If you want to immediately test opinionated_mcp without creating any files, you can run the included example directly::
+
+    python -c "from opinionated_mcp.example import run_example_server; run_example_server('YOUR_GOOGLE_CLIENT_ID_HERE')"
+
+Replace ``YOUR_GOOGLE_CLIENT_ID_HERE`` with your actual Google Client ID from step 2. This will start an "Example MCP Server" with two authenticated tools: ``write_name`` and ``read_name``. Skip to Step 5 to test your server.
+
+**Option B: Create Your Own Server File**
 
 Create a new file called ``server.py``:
 
@@ -102,16 +112,26 @@ Create a new file called ``server.py``:
 
 **Important**: Replace ``YOUR_GOOGLE_CLIENT_ID_HERE`` with your actual Google Client ID from step 2.
 
-Step 4: Run Your Server
+Step 4: Run Your Server  
 ------------------------
+
+**If you created a server.py file (Option B)**
 
 Start your server::
 
     python server.py
 
+**If you used the one-liner example (Option A)**
+
+Your server should already be running! If not, run it again::
+
+    python -c "from opinionated_mcp.example import run_example_server; run_example_server('YOUR_GOOGLE_CLIENT_ID_HERE')"
+
+Replace ``YOUR_GOOGLE_CLIENT_ID_HERE`` with your actual Google Client ID from step 2.
+
 You should see output like::
 
-    🚀 Starting User Name Manager
+    🚀 Starting Example MCP Server       # (or "User Name Manager" if you created server.py)
     📡 Server: http://localhost:8000
     🔗 Base URL: http://localhost:8000
     🔐 Login: http://localhost:8000/login
