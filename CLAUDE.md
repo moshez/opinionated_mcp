@@ -62,6 +62,12 @@ cd src/opinionated_mcp && nox -e refresh_deps
 # Run tests
 cd src/opinionated_mcp && nox -r -e tests-3.12
 
+# Run lint
+cd src/opinionated_mcp && nox -r -e lint
+
+# Apply black formatting (if lint fails)
+cd src/opinionated_mcp && /opt/kalyke/homedir/src/opinionated_mcp/build/nox/lint/bin/black src/ noxfile.py
+
 # Check specific command patterns
 cd /path && command  # Correct
 cd /path; command    # Also acceptable
