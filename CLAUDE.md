@@ -65,6 +65,12 @@ cd src/opinionated_mcp && nox -r -e tests-3.12
 # Run lint
 cd src/opinionated_mcp && nox -r -e lint
 
+# Run mypy type checking
+cd src/opinionated_mcp && nox -r -e mypy
+
+# Build documentation
+cd src/opinionated_mcp && nox -r -e docs
+
 # Apply black formatting (if lint fails)
 cd src/opinionated_mcp && /opt/kalyke/homedir/src/opinionated_mcp/build/nox/lint/bin/black src/ noxfile.py
 
