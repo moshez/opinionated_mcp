@@ -25,7 +25,10 @@ def setup_routes(app, oauth_handler: GoogleOAuthHandler, name: str, base_url: st
 
     @app.get("/callback")
     async def callback(
-        request: Request, code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None
+        request: Request,
+        code: Optional[str] = None,
+        state: Optional[str] = None,
+        error: Optional[str] = None,
     ):
         """Handle Google OAuth callback"""
         if error:
